@@ -103,6 +103,63 @@
     scrollbar-width: none;
   }
 
+  #mobile-header {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  z-index: 200;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+.mobile-logo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.05em;
+}
+.mobile-logo em { font-style: normal; color: var(--accent); }
+#mobile-menu-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* ── RESPONSIVE ───────────────────────────── */
+@media (max-width: 768px) {
+  #sidebar {
+    transform: translateX(-100%);
+  }
+  #sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+  }
+  #mobile-header { display: flex; }
+  #main-content {
+    margin-left: 0;
+    padding: 24px 16px;
+    margin-top: 56px;
+  }
+
+  .teams-container {
+    grid-template-columns: 1fr;
+  }
+  .vs-divider { text-align: center; }
+
+  .match-card {
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto auto;
+  }
+  .match-edit-btn { grid-column: 1 / -1; width: 100%; }
+
+  .add-player-form { flex-direction: column; }
+  .add-player-form .submit-btn { width: 100%; }
+}
+
   nav::-webkit-scrollbar { display: none; }
 
   nav button {
