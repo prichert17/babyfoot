@@ -13,24 +13,26 @@
 <body>
 
 <!-- ══ HEADER ══ -->
-<header>
-  <nav id="sidebar">
-  <div class="sidebar-logo">
-      <span class="logo-icon">⚽</span>
-      <span class="logo-text">BABY<br><em>ELO</em></span>
-    </div>
-    <button class="active" onclick="showPage('dashboard')">🏠 Accueil</button>
-    <button onclick="showPage('add-match')">➕ Nouveau match</button>
-    <button onclick="showPage('matches')">📋 Historique</button>
-    <button onclick="showPage('ranking')">🏆 Classement</button>
-    <button onclick="showPage('players')">👥 Joueurs</button>
-  </nav>
-</header>
 
-  <header id="mobile-header">
-    <div class="mobile-logo">⚽ BABY<em>ELO</em></div>
-    <button id="mobile-menu-toggle">☰</button>
-  </header>
+<nav id="sidebar">
+<div class="sidebar-logo">
+    <span class="logo-icon">⚽</span>
+    <span class="logo-text">BABY<br><em>ELO</em></span>
+</div>
+<ul class="nav-links">
+  <button class="active" onclick="showPage('dashboard')">🏠 Accueil</button>
+  <button onclick="showPage('add-match')">➕ Nouveau match</button>
+  <button onclick="showPage('matches')">📋 Historique</button>
+  <button onclick="showPage('ranking')">🏆 Classement</button>
+  <button onclick="showPage('players')">👥 Joueurs</button>
+</ul>
+</nav>
+
+
+<header id="mobile-header">
+  <div class="mobile-logo">⚽ BABY<em>ELO</em></div>
+  <button id="mobile-menu-toggle">☰</button>
+</header>
 
 
 
@@ -1145,6 +1147,9 @@ function showAlert(el, type, msg) {
   setTimeout(() => { if (el.innerHTML.includes(msg)) el.innerHTML = ''; }, 3000);
 }
 
+document.getElementById('mobile-menu-toggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
 // ═══════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════
