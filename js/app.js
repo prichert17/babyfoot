@@ -1,477 +1,357 @@
-// ============================================
-// APP — Main controller
-// ============================================
+// js/app.js
+// ============================================================
+// État global partagé, utilitaires, logique commune
+// ============================================================
 
-const App = (() => {
+import { db } from "./firebase-config.js";
+import {
+  collection, getDocs, addDoc, updateDoc, deleteDoc,
+  doc, query, orderBy, onSnapshot, Timestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { computeEloChanges, BASE_ELO } from "./elo.js";
 
-  let currentMode = '1v1';      // '1v1' | '2v2'
-  let currentView = 'ranking';  // active view
+// ─── État global ───────────────────────────────────────────
+export const state = {
+  players: {},   // { [id]: { id, name, color, elo, createdAt } }
+  matches: [],   // [ { id, mode, teamA, teamB, scoreA, scoreB, comment, date, eloChanges, createdAt } ]
+  ready: false,
+};
 
-  // ── NAVIGATION ────────────────────────────
-  const showView = (name) => {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    const view = document.getElementById(`view-${name}`);
-    if (view) view.classList.add('active');
-    const btn = document.querySelector(`[data-view="${name}"]`);
-    if (btn) btn.classList.add('active');
-    currentView = name;
+// ─── Listeners (page peut s'abonner) ───────────────────────
+const subscribers = [];
+export function onStateReady(fn) { subscribers.push(fn); }
+function notifyAll() { subscribers.forEach(fn => fn()); }
 
-    // Close mobile menu
-    document.getElementById('sidebar').classList.remove('open');
+// ─── Chargement depuis Firestore ───────────────────────────
+export async function loadAll() {
+  const [playersSnap, matchesSnap] = await Promise.all([
+    getDocs(collection(db, "players")),
+    getDocs(query(collection(db, "matches"), orderBy("date", "asc"))),
+  ]);
 
-    // Refresh content
-    switch (name) {
-      case 'ranking':   refreshRanking(); break;
-      case 'matches':   refreshMatches(); break;
-      case 'add-player': refreshPlayersGrid(); break;
-      case 'add-match': refreshAddMatchForm(); break;
+  state.players = {};
+  playersSnap.forEach(d => {
+    state.players[d.id] = { id: d.id, ...d.data() };
+  });
+
+  state.matches = [];
+  matchesSnap.forEach(d => {
+    state.matches.push({ id: d.id, ...d.data() });
+  });
+
+  state.ready = true;
+  notifyAll();
+}
+
+// ─── Recalcul complet ELO depuis l'historique ──────────────
+// Recompute all ELO from scratch based on match order (by date)
+export function recomputeAllElo() {
+  // Reset
+  const elos = {};
+  for (const id of Object.keys(state.players)) {
+    elos[id] = BASE_ELO;
+  }
+
+  // Sort matches by date ascending
+  const sorted = [...state.matches].sort((a, b) => {
+    const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+    const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+    return da - db2;
+  });
+
+  for (const match of sorted) {
+    const changes = computeEloChanges(match, elos.map ? elos : Object.fromEntries(
+      Object.entries(elos).map(([id, elo]) => [id, { elo }])
+    ));
+    for (const [pid, ch] of Object.entries(changes)) {
+      elos[pid] = ch.after;
     }
-  };
+    // Store computed changes on match object for display
+    match._eloChanges = changes;
+  }
 
-  // ── DATA HELPERS ──────────────────────────
-  const refreshRanking = () => {
-    const players = Storage.getPlayers();
-    const matches = Storage.getMatches();
-    UI.renderRanking(players, matches);
-  };
+  // Update state.players elo
+  for (const id of Object.keys(state.players)) {
+    state.players[id].elo = elos[id] ?? BASE_ELO;
+  }
 
-  const refreshMatches = () => {
-    const players = Storage.getPlayers();
-    const matches = Storage.getMatches();
-    UI.renderMatches(matches, players);
-  };
+  return sorted;
+}
 
-  const refreshPlayersGrid = () => {
-    const players = Storage.getPlayers();
-    const matches = Storage.getMatches();
-    UI.renderPlayersGrid(players, matches);
-  };
+// Helper — convert elos map for computeEloChanges
+function elosAsPlayerMap(elosFlat) {
+  const m = {};
+  for (const [id, elo] of Object.entries(elosFlat)) {
+    m[id] = { elo };
+  }
+  return m;
+}
 
-  const refreshAddMatchForm = () => {
-    const players = Storage.getPlayers();
-    UI.populateSelects(players);
-    updateEloPreview();
-  };
+export function recomputeAllEloFull() {
+  const elos = {};
+  for (const id of Object.keys(state.players)) {
+    elos[id] = BASE_ELO;
+  }
 
-  // ── MODE SELECTOR (ADD MATCH) ─────────────
-  const setMode = (mode) => {
-    currentMode = mode;
-    document.getElementById('mode-1v1').classList.toggle('active', mode === '1v1');
-    document.getElementById('mode-2v2').classList.toggle('active', mode === '2v2');
+  const sorted = [...state.matches].sort((a, b) => {
+    const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+    const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+    return da - db2;
+  });
 
-    const slots2v2 = ['team-a-1', 'team-b-1'];
-    const roleSlots = ['role-a-0', 'role-b-0'];
-
-    if (mode === '2v2') {
-      document.querySelector('[data-team="a"][data-slot="1"]').classList.remove('hidden');
-      document.querySelector('[data-team="b"][data-slot="1"]').classList.remove('hidden');
-      document.getElementById('role-a-0').classList.remove('hidden');
-      document.getElementById('role-b-0').classList.remove('hidden');
-    } else {
-      document.querySelector('[data-team="a"][data-slot="1"]').classList.add('hidden');
-      document.querySelector('[data-team="b"][data-slot="1"]').classList.add('hidden');
-      document.getElementById('role-a-0').classList.add('hidden');
-      document.getElementById('role-b-0').classList.add('hidden');
+  for (const match of sorted) {
+    const changes = computeEloChanges(match, elosAsPlayerMap(elos));
+    for (const [pid, ch] of Object.entries(changes)) {
+      elos[pid] = ch.after;
     }
+    match._eloChanges = changes;
+  }
 
-    updateEloPreview();
-  };
+  for (const id of Object.keys(state.players)) {
+    state.players[id].elo = elos[id] ?? BASE_ELO;
+  }
 
-  // ── ROLE BUTTONS ──────────────────────────
-  const initRoleButtons = (container = document) => {
-    container.querySelectorAll('.role-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const parent = btn.closest('.role-selector');
-        parent.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-  };
+  return { sorted, elos };
+}
 
-  // ── GET ACTIVE ROLE IN SELECTOR ───────────
-  const getActiveRole = (selectorId) => {
-    const sel = document.getElementById(selectorId);
-    if (!sel) return null;
-    const active = sel.querySelector('.role-btn.active');
-    return active ? active.getAttribute('data-role') : null;
-  };
+// ─── Stats joueur ───────────────────────────────────────────
+export function computePlayerStats(playerId, sortedMatches) {
+  const p = state.players[playerId];
+  if (!p) return null;
 
-  // ── ELO PREVIEW ───────────────────────────
-  const updateEloPreview = () => {
-    const players = Storage.getPlayers();
-    const match = buildMatchFromForm();
-    if (!match) { UI.renderEloPreview(null, players); return; }
+  let totalMatches = 0, wins = 0, losses = 0, draws = 0;
+  let matches1v1 = 0, matches2v2 = 0;
+  let matchesAtt = 0, matchesDef = 0;
+  const vsRecord = {}; // { opponentId: { wins, losses, draws } }
+  const eloHistory = [{ elo: BASE_ELO, matchIndex: 0, date: null }];
 
-    const changes = ELO.computeMatchElo(match, players);
-    UI.renderEloPreview(changes, players);
-  };
+  for (const match of sortedMatches) {
+    const inA = match.teamA.some(p2 => p2.playerId === playerId);
+    const inB = match.teamB.some(p2 => p2.playerId === playerId);
+    if (!inA && !inB) continue;
 
-  // ── BUILD MATCH OBJECT FROM FORM ──────────
-  const buildMatchFromForm = (prefix = '') => {
-    const sel = (id) => document.getElementById(id);
-    const pA0 = sel(`${prefix}team-a-0`)?.value;
-    const pB0 = sel(`${prefix}team-b-0`)?.value;
-    const sA  = parseInt(sel(`${prefix}score-a`)?.value ?? '0');
-    const sB  = parseInt(sel(`${prefix}score-b`)?.value ?? '0');
+    totalMatches++;
+    if (match.mode === "1v1") matches1v1++; else matches2v2++;
 
-    if (!pA0 || !pB0) return null;
+    // Role
+    const mySlots = (inA ? match.teamA : match.teamB).filter(p2 => p2.playerId === playerId);
+    const myRole = mySlots[0]?.role ?? null;
+    if (myRole === "attaque") matchesAtt++;
+    if (myRole === "defense") matchesDef++;
 
-    const teamA = [{ playerId: pA0, role: prefix === '' ? getActiveRole('role-a-0') : getActiveRole('edit-role-a-0') }];
-    const teamB = [{ playerId: pB0, role: prefix === '' ? getActiveRole('role-b-0') : getActiveRole('edit-role-b-0') }];
+    // Victoire ?
+    const won = (inA && match.scoreA > match.scoreB) || (inB && match.scoreB > match.scoreA);
+    const lost = (inA && match.scoreA < match.scoreB) || (inB && match.scoreB < match.scoreA);
+    if (won) wins++;
+    else if (lost) losses++;
+    else draws++;
 
-    const mode = prefix === '' ? currentMode : (sel('edit-mode-2v2')?.classList.contains('active') ? '2v2' : '1v1');
+    // ELO change
+    const ch = match._eloChanges?.[playerId];
+    if (ch) eloHistory.push({ elo: ch.after, matchIndex: totalMatches, date: match.date });
 
-    if (mode === '2v2') {
-      const pA1 = sel(`${prefix}team-a-1`)?.value;
-      const pB1 = sel(`${prefix}team-b-1`)?.value;
-      if (pA1) teamA.push({ playerId: pA1, role: prefix === '' ? getActiveRole('role-a-1') : getActiveRole('edit-role-a-1') });
-      if (pB1) teamB.push({ playerId: pB1, role: prefix === '' ? getActiveRole('role-b-1') : getActiveRole('edit-role-b-1') });
+    // vs record
+    const opponents = (inA ? match.teamB : match.teamA).map(p2 => p2.playerId);
+    for (const oppId of opponents) {
+      if (!vsRecord[oppId]) vsRecord[oppId] = { wins: 0, losses: 0, draws: 0 };
+      if (won) vsRecord[oppId].wins++;
+      else if (lost) vsRecord[oppId].losses++;
+      else vsRecord[oppId].draws++;
     }
+  }
 
-    // Uniqueness check
-    const allIds = [...teamA.map(p => p.playerId), ...teamB.map(p => p.playerId)].filter(Boolean);
-    if (new Set(allIds).size !== allIds.length) return null;
+  const winPct = totalMatches > 0 ? ((wins / totalMatches) * 100).toFixed(1) : "0.0";
 
-    return { mode, teamA, teamB, scoreA: sA, scoreB: sB };
+  // Best/worst opponents
+  const oppList = Object.entries(vsRecord).map(([id, rec]) => ({
+    id, ...rec, name: state.players[id]?.name ?? "?",
+    winPct: rec.wins + rec.losses + rec.draws > 0 ? rec.wins / (rec.wins + rec.losses + rec.draws) : 0
+  })).sort((a, b) => b.winPct - a.winPct);
+
+  return {
+    totalMatches, wins, losses, draws, matches1v1, matches2v2,
+    matchesAtt, matchesDef, winPct, eloHistory, oppList
   };
+}
 
-  // ── SUBMIT MATCH ──────────────────────────
-  const submitMatch = () => {
-    const match = buildMatchFromForm();
-    if (!match) {
-      UI.toast('Sélectionnez tous les joueurs (sans doublons) !', 'error');
-      return;
+// ─── Firestore : Ajouter un match ───────────────────────────
+export async function addMatch(matchData) {
+  const { sorted } = recomputeAllEloFull();
+  // Compute ELO changes at the time of this match
+  const elos = {};
+  for (const id of Object.keys(state.players)) elos[id] = BASE_ELO;
+  for (const m of sorted) {
+    for (const [pid, ch] of Object.entries(m._eloChanges ?? {})) {
+      elos[pid] = ch.after;
     }
+  }
+  const changes = computeEloChanges(matchData, elosAsPlayerMap(elos));
 
-    const dateInput = document.getElementById('match-date').value;
-    const matchDate = dateInput ? new Date(dateInput).toISOString() : new Date().toISOString();
-    const comment = document.getElementById('match-comment').value.trim();
+  const docRef = await addDoc(collection(db, "matches"), {
+    ...matchData,
+    eloChanges: changes,
+    createdAt: Timestamp.now(),
+  });
 
-    // Compute ELO changes
-    const players = Storage.getPlayers();
-    const changes = ELO.computeMatchElo(match, players);
+  // Update each player's ELO in Firestore
+  for (const [pid, ch] of Object.entries(changes)) {
+    await updateDoc(doc(db, "players", pid), { elo: ch.after });
+  }
 
-    // Save match
-    Storage.addMatch({ ...match, matchDate, comment });
+  await loadAll();
+  recomputeAllEloFull();
+  return docRef.id;
+}
 
-    // Update player ELOs
-    changes.forEach(c => Storage.updatePlayerElo(c.playerId, c.newElo));
+// ─── Firestore : Modifier un match ──────────────────────────
+export async function editMatch(matchId, matchData) {
+  await updateDoc(doc(db, "matches", matchId), matchData);
 
-    UI.toast('Match enregistré ! 🎉', 'success');
-    resetAddMatchForm();
-    UI.renderEloPreview(null, players);
-  };
+  // Recompute all ELO from scratch
+  await loadAll(); // reload fresh data
+  const { sorted, elos } = recomputeAllEloFull();
 
-  const resetAddMatchForm = () => {
-    ['team-a-0','team-a-1','team-b-0','team-b-1'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    document.getElementById('score-a').value = 0;
-    document.getElementById('score-b').value = 0;
-    document.getElementById('match-comment').value = '';
-    document.getElementById('match-date').value = '';
-  };
+  // Update all player ELOs in Firestore
+  const batch = [];
+  for (const [pid, elo] of Object.entries(elos)) {
+    batch.push(updateDoc(doc(db, "players", pid), { elo }));
+  }
+  await Promise.all(batch);
 
-  // ── ADD PLAYER ────────────────────────────
-  const addPlayer = () => {
-    const input = document.getElementById('new-player-name');
-    const pseudo = input.value.trim();
-    if (!pseudo) { UI.toast('Entrez un pseudo !', 'error'); return; }
-
-    const players = Storage.getPlayers();
-    if (players.some(p => p.pseudo.toLowerCase() === pseudo.toLowerCase())) {
-      UI.toast('Ce pseudo existe déjà !', 'error');
-      return;
+  // Also update eloChanges stored on each match
+  for (const m of sorted) {
+    if (m._eloChanges) {
+      await updateDoc(doc(db, "matches", m.id), { eloChanges: m._eloChanges });
     }
+  }
 
-    Storage.addPlayer(pseudo);
-    input.value = '';
-    UI.toast(`${pseudo} ajouté ! 👋`, 'success');
-    refreshPlayersGrid();
-  };
+  await loadAll();
+  recomputeAllEloFull();
+}
 
-  // ── ADMIN AUTH ────────────────────────────
-  const ADMIN_PASSWORD = 'admindaph';
+// ─── Firestore : Supprimer un match ─────────────────────────
+export async function deleteMatch(matchId) {
+  await deleteDoc(doc(db, "matches", matchId));
+  await loadAll();
+  const { elos } = recomputeAllEloFull();
+  const batch = [];
+  for (const [pid, elo] of Object.entries(elos)) {
+    batch.push(updateDoc(doc(db, "players", pid), { elo }));
+  }
+  await Promise.all(batch);
+  await loadAll();
+  recomputeAllEloFull();
+}
 
-  const askAdminPassword = () => {
-    const pwd = prompt('🔒 Mot de passe administrateur requis :');
-    if (pwd === null) return false; // annulé
-    if (pwd !== ADMIN_PASSWORD) {
-      alert('❌ Mot de passe incorrect.');
-      return false;
-    }
-    return true;
-  };
+// ─── Firestore : Joueur ─────────────────────────────────────
+export async function addPlayer(name, color) {
+  const ref = await addDoc(collection(db, "players"), {
+    name, color, elo: BASE_ELO,
+    createdAt: Timestamp.now(),
+  });
+  await loadAll();
+  return ref.id;
+}
 
-  // ── EDIT PLAYER NAME (ADMIN) ──────────────
-  const adminEditPlayerName = (id) => {
-    if (!askAdminPassword()) return;
+export async function editPlayer(playerId, updates) {
+  await updateDoc(doc(db, "players", playerId), updates);
+  await loadAll();
+}
 
-    const players = Storage.getPlayers();
-    const player = players.find(p => p.id === id);
-    if (!player) return;
+// ─── CSV Export ─────────────────────────────────────────────
+export function exportCSV(sortedMatches) {
+  const header = [
+    "match_id","date","mode",
+    "teamA_p1","teamA_p1_role","teamA_p2","teamA_p2_role",
+    "teamB_p1","teamB_p1_role","teamB_p2","teamB_p2_role",
+    "scoreA","scoreB","winner",
+    "eloA_p1_before","eloA_p1_after","eloA_p2_before","eloA_p2_after",
+    "eloB_p1_before","eloB_p1_after","eloB_p2_before","eloB_p2_after",
+    "comment"
+  ];
 
-    const newName = prompt(`✏️ Nouveau pseudo pour "${player.pseudo}" :`, player.pseudo);
-    if (newName === null) return; // annulé
-    const trimmed = newName.trim();
-    if (!trimmed) { alert('Le pseudo ne peut pas être vide.'); return; }
-    if (trimmed === player.pseudo) return; // pas de changement
+  const rows = sortedMatches.map(m => {
+    const date = m.date?.toDate ? m.date.toDate().toISOString() : new Date(m.date).toISOString();
+    const winner = m.scoreA > m.scoreB ? "A" : m.scoreB > m.scoreA ? "B" : "draw";
+    const pName = id => state.players[id]?.name ?? id;
+    const eloBef = (id) => m._eloChanges?.[id]?.before ?? "";
+    const eloAft = (id) => m._eloChanges?.[id]?.after ?? "";
+    const a1 = m.teamA[0] ?? {}; const a2 = m.teamA[1] ?? {};
+    const b1 = m.teamB[0] ?? {}; const b2 = m.teamB[1] ?? {};
+    return [
+      m.id, date, m.mode,
+      pName(a1.playerId), a1.role ?? "",
+      pName(a2.playerId ?? ""), a2.role ?? "",
+      pName(b1.playerId), b1.role ?? "",
+      pName(b2.playerId ?? ""), b2.role ?? "",
+      m.scoreA, m.scoreB, winner,
+      eloBef(a1.playerId), eloAft(a1.playerId),
+      eloBef(a2.playerId ?? ""), eloAft(a2.playerId ?? ""),
+      eloBef(b1.playerId), eloAft(b1.playerId),
+      eloBef(b2.playerId ?? ""), eloAft(b2.playerId ?? ""),
+      (m.comment ?? "").replace(/"/g, '""')
+    ].map(v => `"${v}"`).join(",");
+  });
 
-    if (players.some(p => p.id !== id && p.pseudo.toLowerCase() === trimmed.toLowerCase())) {
-      alert('❌ Ce pseudo existe déjà !');
-      return;
-    }
+  const csv = [header.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "babyfoot_matches.csv";
+  a.click(); URL.revokeObjectURL(url);
+}
 
-    Storage.updatePlayerPseudo(id, trimmed);
-    UI.toast(`Pseudo mis à jour : ${trimmed} ✅`, 'success');
-    refreshPlayersGrid();
-  };
+// ─── Utilitaires UI ─────────────────────────────────────────
+export function formatDate(ts) {
+  if (!ts) return "—";
+  const d = ts?.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
-  // ── DELETE PLAYER (ADMIN) ─────────────────
-  const adminDeletePlayer = (id) => {
-    if (!askAdminPassword()) return;
+export function formatDateShort(ts) {
+  if (!ts) return "—";
+  const d = ts?.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
 
-    const players = Storage.getPlayers();
-    const player = players.find(p => p.id === id);
-    if (!player) return;
+export function showToast(msg, type = "success") {
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  const icons = { success: "✓", error: "✕", info: "ℹ" };
+  toast.innerHTML = `<span>${icons[type] ?? "✓"}</span> ${msg}`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = "0"; toast.style.transform = "translateY(10px)"; toast.style.transition = "all 0.3s"; setTimeout(() => toast.remove(), 300); }, 3000);
+}
 
-    const confirmed = confirm(
-      `🗑️ Supprimer le joueur "${player.pseudo}" ?\n\nAttention : ses matchs seront conservés mais associés à un joueur supprimé.`
-    );
-    if (!confirmed) return;
+export function confirm(title, message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay";
+    overlay.innerHTML = `
+      <div class="confirm-box">
+        <h4>${title}</h4>
+        <p>${message}</p>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" id="confirmNo">Annuler</button>
+          <button class="btn btn-danger" id="confirmYes">Supprimer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#confirmYes").onclick = () => { overlay.remove(); resolve(true); };
+    overlay.querySelector("#confirmNo").onclick = () => { overlay.remove(); resolve(false); };
+  });
+}
 
-    // Remove player
-    const updated = players.filter(p => p.id !== id);
-    Storage.savePlayers(updated);
+// ─── Navbar burger ──────────────────────────────────────────
+document.getElementById("navBurger")?.addEventListener("click", () => {
+  document.getElementById("mobileMenu")?.classList.toggle("open");
+});
 
-    UI.toast(`${player.pseudo} supprimé.`, 'success');
-    refreshPlayersGrid();
-  };
-
-  // gardé pour compatibilité interne (non utilisé depuis l'UI)
-  const startEditPlayerName = adminEditPlayerName;
-
-  // ── EDIT MODAL ────────────────────────────
-  const openEditModal = (matchId) => {
-    const matches = Storage.getMatches();
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    const players = Storage.getPlayers();
-    const body = document.getElementById('edit-modal-body');
-    body.innerHTML = UI.buildEditMatchForm(match, players);
-
-    // Set player values
-    const setSelectVal = (id, val) => {
-      const el = document.getElementById(id);
-      if (el && val) el.value = val;
-    };
-    setSelectVal('edit-team-a-0', match.teamA[0]?.playerId);
-    setSelectVal('edit-team-b-0', match.teamB[0]?.playerId);
-    if (match.mode === '2v2') {
-      setSelectVal('edit-team-a-1', match.teamA[1]?.playerId);
-      setSelectVal('edit-team-b-1', match.teamB[1]?.playerId);
-    }
-
-    // Init role buttons
-    initRoleButtons(body);
-
-    // Mode toggle in modal
-    const modeSetEdit = (mode) => {
-      document.getElementById('edit-mode-1v1').classList.toggle('active', mode === '1v1');
-      document.getElementById('edit-mode-2v2').classList.toggle('active', mode === '2v2');
-      const slot2a = document.getElementById('edit-slot-a1');
-      const slot2b = document.getElementById('edit-slot-b1');
-      const role0a = document.getElementById('edit-role-a-0');
-      const role0b = document.getElementById('edit-role-b-0');
-      if (slot2a) slot2a.classList.toggle('hidden', mode === '1v1');
-      if (slot2b) slot2b.classList.toggle('hidden', mode === '1v1');
-      if (role0a) role0a.classList.toggle('hidden', mode === '1v1');
-      if (role0b) role0b.classList.toggle('hidden', mode === '1v1');
-    };
-
-    body.querySelector('#edit-mode-1v1')?.addEventListener('click', () => modeSetEdit('1v1'));
-    body.querySelector('#edit-mode-2v2')?.addEventListener('click', () => modeSetEdit('2v2'));
-
-    // Save
-    body.querySelector('#edit-save-btn').addEventListener('click', () => saveEditMatch(matchId));
-
-    // Delete
-    body.querySelector('#edit-delete-btn').addEventListener('click', () => {
-      if (confirm('Supprimer ce match et recalculer les ELOs ?')) {
-        Storage.deleteMatch(matchId);
-        recalcAndSaveAllElos();
-        closeEditModal();
-        UI.toast('Match supprimé.', 'success');
-        refreshMatches();
-      }
-    });
-
-    document.getElementById('edit-modal').classList.remove('hidden');
-  };
-
-  const closeEditModal = () => {
-    document.getElementById('edit-modal').classList.add('hidden');
-    document.getElementById('edit-modal-body').innerHTML = '';
-  };
-
-  const saveEditMatch = (matchId) => {
-    const body = document.getElementById('edit-modal-body');
-    const pA0 = document.getElementById('edit-team-a-0')?.value;
-    const pB0 = document.getElementById('edit-team-b-0')?.value;
-    const sA  = parseInt(document.getElementById('edit-score-a')?.value ?? '0');
-    const sB  = parseInt(document.getElementById('edit-score-b')?.value ?? '0');
-    const dateVal = document.getElementById('edit-match-date')?.value;
-    const comment = document.getElementById('edit-match-comment')?.value.trim() ?? '';
-
-    if (!pA0 || !pB0) { UI.toast('Sélectionnez les joueurs !', 'error'); return; }
-
-    const is2v2 = body.querySelector('#edit-mode-2v2')?.classList.contains('active');
-    const mode = is2v2 ? '2v2' : '1v1';
-
-    const getRoleEdit = (selectorId) => {
-      const sel = document.getElementById(selectorId);
-      if (!sel) return null;
-      const active = sel.querySelector('.role-btn.active');
-      return active ? active.getAttribute('data-role') : null;
-    };
-
-    const teamA = [{ playerId: pA0, role: getRoleEdit('edit-role-a-0') }];
-    const teamB = [{ playerId: pB0, role: getRoleEdit('edit-role-b-0') }];
-
-    if (is2v2) {
-      const pA1 = document.getElementById('edit-team-a-1')?.value;
-      const pB1 = document.getElementById('edit-team-b-1')?.value;
-      if (pA1) teamA.push({ playerId: pA1, role: getRoleEdit('edit-role-a-1') });
-      if (pB1) teamB.push({ playerId: pB1, role: getRoleEdit('edit-role-b-1') });
-    }
-
-    const allIds = [...teamA, ...teamB].map(p => p.playerId).filter(Boolean);
-    if (new Set(allIds).size !== allIds.length) {
-      UI.toast('Un joueur ne peut pas être dans les deux équipes !', 'error');
-      return;
-    }
-
-    const matchDate = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
-    Storage.updateMatch(matchId, { mode, teamA, teamB, scoreA: sA, scoreB: sB, matchDate, comment });
-
-    recalcAndSaveAllElos();
-    closeEditModal();
-    UI.toast('Match modifié ! ✅', 'success');
-    refreshMatches();
-  };
-
-  // ── FULL ELO RECALC ───────────────────────
-  const recalcAndSaveAllElos = () => {
-    const players = Storage.getPlayers();
-    const matches = Storage.getMatches();
-    const elos = ELO.recalcAllElo(matches, players);
-    players.forEach(p => {
-      if (elos[p.id] !== undefined) Storage.updatePlayerElo(p.id, elos[p.id]);
-    });
-  };
-
-  // ── CSV EXPORT ────────────────────────────
-  const exportCsv = () => {
-    const matches = Storage.getMatches();
-    const players = Storage.getPlayers();
-    if (!matches.length) { UI.toast('Aucun match à exporter.', 'error'); return; }
-
-    const pMap = {};
-    players.forEach(p => pMap[p.id] = p.pseudo);
-
-    const headers = [
-      'match_id','mode','date','score_a','score_b','winner',
-      'player_a1','role_a1','player_a2','role_a2',
-      'player_b1','role_b1','player_b2','role_b2',
-      'comment'
-    ];
-
-    const rows = matches.map(m => {
-      const winner = m.scoreA > m.scoreB ? 'A' : m.scoreB > m.scoreA ? 'B' : 'draw';
-      const getSlot = (team, idx) => ({
-        name: pMap[team[idx]?.playerId] ?? '',
-        role: team[idx]?.role ?? ''
-      });
-      const a0 = getSlot(m.teamA, 0), a1 = getSlot(m.teamA, 1);
-      const b0 = getSlot(m.teamB, 0), b1 = getSlot(m.teamB, 1);
-
-      return [
-        m.id, m.mode, m.matchDate, m.scoreA, m.scoreB, winner,
-        a0.name, a0.role, a1.name, a1.role,
-        b0.name, b0.role, b1.name, b1.role,
-        (m.comment || '').replace(/,/g, ';')
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `babyfoot_elo_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    UI.toast('Export CSV téléchargé ! 📊', 'success');
-  };
-
-  // ── INIT ──────────────────────────────────
-  const init = () => {
-    // Nav
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', () => showView(btn.getAttribute('data-view')));
-    });
-
-    // Mobile menu
-    document.getElementById('mobile-menu-toggle').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('open');
-    });
-
-    // Mode buttons (add match)
-    document.getElementById('mode-1v1').addEventListener('click', () => setMode('1v1'));
-    document.getElementById('mode-2v2').addEventListener('click', () => setMode('2v2'));
-
-    // Role buttons (add match)
-    initRoleButtons();
-
-    // Score & player changes → ELO preview
-    ['score-a','score-b','team-a-0','team-a-1','team-b-0','team-b-1'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', updateEloPreview);
-      document.getElementById(id)?.addEventListener('input', updateEloPreview);
-    });
-
-    // Submit match
-    document.getElementById('submit-match-btn').addEventListener('click', submitMatch);
-
-    // Add player
-    document.getElementById('add-player-btn').addEventListener('click', addPlayer);
-    document.getElementById('new-player-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') addPlayer();
-    });
-
-    // Export CSV
-    document.getElementById('export-csv-btn').addEventListener('click', exportCsv);
-
-    // Close modal
-    document.getElementById('close-modal-btn').addEventListener('click', closeEditModal);
-    document.getElementById('edit-modal').addEventListener('click', e => {
-      if (e.target === document.getElementById('edit-modal')) closeEditModal();
-    });
-
-    // Set default match date to now
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    document.getElementById('match-date').value =
-      `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    // Initial view
-    refreshRanking();
-    refreshAddMatchForm();
-  };
-
-  return { init, openEditModal, startEditPlayerName, adminEditPlayerName, adminDeletePlayer, exportCsv };
-})();
-
-document.addEventListener('DOMContentLoaded', App.init);
+// ─── Init ───────────────────────────────────────────────────
+loadAll();

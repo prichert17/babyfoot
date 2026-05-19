@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Joueurs — Babyfoot ELO</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">⚽</span>
+      <span class="nav-title">BABYFOOT ELO</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="matches.html">Matchs</a></li>
+      <li><a href="players.html" class="active">Joueurs</a></li>
+    </ul>
+    <button class="nav-burger" id="navBurger">☰</button>
+  </nav>
+  <div class="nav-mobile-menu" id="mobileMenu">
+    <a href="index.html">Accueil</a>
+    <a href="matches.html">Matchs</a>
+    <a href="players.html">Joueurs</a>
+  </div>
+
+  <main class="page-main">
+
+    <section class="hero hero--small">
+      <div class="hero-text">
+        <h1 class="hero-title">JOUEURS</h1>
+        <p class="hero-sub">Gérer les joueurs et consulter leurs statistiques</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btnAddPlayer">+ Nouveau joueur</button>
+      </div>
+    </section>
+
+    <!-- ADD/EDIT PLAYER MODAL -->
+    <div class="modal-overlay" id="playerModal">
+      <div class="modal modal--small">
+        <div class="modal-header">
+          <h3 class="modal-title" id="playerModalTitle">Nouveau joueur</h3>
+          <button class="modal-close" id="playerModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Pseudo</label>
+            <input type="text" class="form-input" id="playerName" placeholder="Pseudo du joueur…" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Couleur</label>
+            <div class="color-picker-wrap">
+              <input type="color" class="color-picker" id="playerColor" value="#00ff88" />
+              <div class="color-presets" id="colorPresets"></div>
+            </div>
+          </div>
+          <input type="hidden" id="editPlayerId" value="" />
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="cancelPlayer">Annuler</button>
+            <button class="btn btn-primary" id="savePlayer">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYER DETAIL MODAL -->
+    <div class="modal-overlay" id="playerDetailModal">
+      <div class="modal modal--large">
+        <div class="modal-header">
+          <h3 class="modal-title" id="detailPlayerName">—</h3>
+          <button class="modal-close" id="detailModalClose">✕</button>
+        </div>
+        <div class="modal-body" id="playerDetailBody">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYERS GRID -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">TOUS LES JOUEURS</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="players-grid" id="playersGrid">
+        <div class="loading-cell">Chargement…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>Babyfoot ELO © 2025</span>
+  </footer>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/elo.js"></script>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/players.js"></script>
+</body>
+</html>

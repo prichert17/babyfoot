@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matchs — Babyfoot ELO</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">⚽</span>
+      <span class="nav-title">BABYFOOT ELO</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="matches.html" class="active">Matchs</a></li>
+      <li><a href="players.html">Joueurs</a></li>
+    </ul>
+    <button class="nav-burger" id="navBurger">☰</button>
+  </nav>
+  <div class="nav-mobile-menu" id="mobileMenu">
+    <a href="index.html">Accueil</a>
+    <a href="matches.html">Matchs</a>
+    <a href="players.html">Joueurs</a>
+  </div>
+
+  <main class="page-main">
+
+    <section class="hero hero--small">
+      <div class="hero-text">
+        <h1 class="hero-title">MATCHS</h1>
+        <p class="hero-sub">Ajouter, consulter et modifier les matchs</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btnAddMatch">+ Nouveau match</button>
+        <button class="btn btn-ghost" id="btnExportCSV">⬇ Exporter CSV</button>
+      </div>
+    </section>
+
+    <!-- ADD MATCH MODAL -->
+    <div class="modal-overlay" id="matchModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modalTitle">Nouveau match</h3>
+          <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <div class="modal-body">
+
+          <!-- MODE -->
+          <div class="form-group">
+            <label class="form-label">Mode de jeu</label>
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-mode="1v1">1 VS 1</button>
+              <button class="toggle-btn" data-mode="2v2">2 VS 2</button>
+            </div>
+          </div>
+
+          <!-- TEAM A -->
+          <div class="form-group">
+            <label class="form-label">Équipe A</label>
+            <div class="team-row" id="teamA1Row">
+              <select class="form-select" id="teamA1" data-team="A" data-slot="1">
+                <option value="">Sélectionner joueur…</option>
+              </select>
+              <div class="role-toggle" id="roleA1" style="display:none;">
+                <button class="role-btn active" data-role="attaque">ATT</button>
+                <button class="role-btn" data-role="defense">DEF</button>
+              </div>
+            </div>
+            <div class="team-row" id="teamA2Row" style="display:none;">
+              <select class="form-select" id="teamA2" data-team="A" data-slot="2">
+                <option value="">Sélectionner joueur…</option>
+              </select>
+              <div class="role-toggle" id="roleA2">
+                <button class="role-btn active" data-role="attaque">ATT</button>
+                <button class="role-btn" data-role="defense">DEF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCORE -->
+          <div class="form-group score-group">
+            <div class="score-input-wrap">
+              <label class="form-label">Score A</label>
+              <input type="number" class="form-input score-input" id="scoreA" min="0" max="99" value="0" />
+            </div>
+            <div class="score-sep">VS</div>
+            <div class="score-input-wrap">
+              <label class="form-label">Score B</label>
+              <input type="number" class="form-input score-input" id="scoreB" min="0" max="99" value="0" />
+            </div>
+          </div>
+
+          <!-- TEAM B -->
+          <div class="form-group">
+            <label class="form-label">Équipe B</label>
+            <div class="team-row" id="teamB1Row">
+              <select class="form-select" id="teamB1" data-team="B" data-slot="1">
+                <option value="">Sélectionner joueur…</option>
+              </select>
+              <div class="role-toggle" id="roleB1" style="display:none;">
+                <button class="role-btn active" data-role="attaque">ATT</button>
+                <button class="role-btn" data-role="defense">DEF</button>
+              </div>
+            </div>
+            <div class="team-row" id="teamB2Row" style="display:none;">
+              <select class="form-select" id="teamB2" data-team="B" data-slot="2">
+                <option value="">Sélectionner joueur…</option>
+              </select>
+              <div class="role-toggle" id="roleB2">
+                <button class="role-btn active" data-role="attaque">ATT</button>
+                <button class="role-btn" data-role="defense">DEF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DATE -->
+          <div class="form-group">
+            <label class="form-label">Date du match</label>
+            <input type="datetime-local" class="form-input" id="matchDate" />
+          </div>
+
+          <!-- COMMENT -->
+          <div class="form-group">
+            <label class="form-label">Commentaire (optionnel)</label>
+            <textarea class="form-input form-textarea" id="matchComment" placeholder="Une anecdote sur ce match…"></textarea>
+          </div>
+
+          <input type="hidden" id="editMatchId" value="" />
+
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="cancelMatch">Annuler</button>
+            <button class="btn btn-primary" id="saveMatch">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ELO PREVIEW MODAL -->
+    <div class="modal-overlay" id="eloModal">
+      <div class="modal modal--small">
+        <div class="modal-header">
+          <h3 class="modal-title">Détail ELO</h3>
+          <button class="modal-close" id="eloModalClose">✕</button>
+        </div>
+        <div class="modal-body" id="eloModalBody"></div>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <section class="section">
+      <div class="filters-bar">
+        <input type="text" class="form-input filter-search" id="filterSearch" placeholder="Rechercher joueur…" />
+        <select class="form-select filter-select" id="filterMode">
+          <option value="">Tous les modes</option>
+          <option value="1v1">1 VS 1</option>
+          <option value="2v2">2 VS 2</option>
+        </select>
+        <input type="date" class="form-input filter-date" id="filterDateFrom" />
+        <span class="filter-sep">→</span>
+        <input type="date" class="form-input filter-date" id="filterDateTo" />
+        <button class="btn btn-ghost" id="clearFilters">Réinitialiser</button>
+      </div>
+    </section>
+
+    <!-- MATCHES LIST -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">HISTORIQUE</h2>
+        <div class="section-line"></div>
+        <span class="match-count" id="matchCount">— matchs</span>
+      </div>
+      <div class="matches-list" id="matchesList">
+        <div class="loading-cell">Chargement…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>Babyfoot ELO © 2025</span>
+  </footer>
+
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/elo.js"></script>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/matches.js"></script>
+</body>
+</html>
