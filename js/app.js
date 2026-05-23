@@ -119,10 +119,11 @@ export function computePlayerStats(playerId, sortedMatches) {
   const p = state.players[playerId];
   if (!p) return null;
 
-  let totalMatches = 0, wins = 0, losses = 0, draws = 0;
+  let totalMatches = 0, wins = 0, losses = 0, draws = 0, seriewins = 0, bestserie=0;
   let matches1v1 = 0, matches2v2 = 0;
   let matchesAtt = 0, matchesDef = 0;
   const vsRecord = {}; // { opponentId: { wins, losses, draws } }
+  const teammateRecord = {};
   const eloHistory = [{ elo: BASE_ELO, matchIndex: 0, date: null }];
 
   for (const match of sortedMatches) {
@@ -142,8 +143,8 @@ export function computePlayerStats(playerId, sortedMatches) {
     // Victoire ?
     const won = (inA && match.scoreA > match.scoreB) || (inB && match.scoreB > match.scoreA);
     const lost = (inA && match.scoreA < match.scoreB) || (inB && match.scoreB < match.scoreA);
-    if (won) wins++;
-    else if (lost) losses++;
+    if (won) wins++ , seriewins++;
+    else if (lost) losses++, bestserie=Math.max(bestserie,seriewins), seriewins=0;
     else draws++;
 
     // ELO change
@@ -158,7 +159,17 @@ export function computePlayerStats(playerId, sortedMatches) {
       else if (lost) vsRecord[oppId].losses++;
       else vsRecord[oppId].draws++;
     }
+
+    const teammates = (inA ? match.teamA : match.teamB).map(p2 => p2.playerId).filter(id => id !== playerId); // exclure soi-même
+
+    for (const tmId of teammates) {
+      if (!teammateRecord[tmId]) teammateRecord[tmId] = { wins: 0, losses: 0, draws: 0 };
+      if (won) teammateRecord[tmId].wins++;
+      else if (lost) teammateRecord[tmId].losses++;
+      else teammateRecord[tmId].draws++;
+    }
   }
+  bestserie=Math.max(bestserie,seriewins);
 
   const winPct = totalMatches > 0 ? ((wins / totalMatches) * 100).toFixed(1) : "0.0";
 
@@ -168,9 +179,14 @@ export function computePlayerStats(playerId, sortedMatches) {
     winPct: rec.wins + rec.losses + rec.draws > 0 ? rec.wins / (rec.wins + rec.losses + rec.draws) : 0
   })).sort((a, b) => b.winPct - a.winPct);
 
+  const teammateList = Object.entries(teammateRecord).map(([id, rec]) => ({
+  id, ...rec, name: state.players[id]?.name ?? "?",
+  winPct: rec.wins + rec.losses + rec.draws > 0 ? rec.wins / (rec.wins + rec.losses + rec.draws) : 0
+})).sort((a, b) => b.winPct - a.winPct);
+
   return {
     totalMatches, wins, losses, draws, matches1v1, matches2v2,
-    matchesAtt, matchesDef, winPct, eloHistory, oppList
+    matchesAtt, matchesDef, winPct, eloHistory, oppList, bestserie, teammateList
   };
 }
 

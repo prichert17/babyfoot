@@ -176,7 +176,7 @@ function openPlayerDetail(playerId) {
   const eloLabels = stats.eloHistory.map((h, i) => i === 0 ? "Début" : `M${i}`);
 
   // Rivals
-  const rivals = stats.oppList.slice(0, 5);
+  const rivals = stats.oppList.slice(0, 10);
   const rivalsHTML = rivals.length
     ? rivals.map(r => `
         <div class="rival-card">
@@ -187,6 +187,20 @@ function openPlayerDetail(playerId) {
           <span class="rival-record">${r.wins}V / ${r.losses}D / ${r.draws}N</span>
         </div>`).join("")
     : '<p class="text-muted" style="font-size:.85rem">Aucun adversaire</p>';
+
+    // Coequipiers
+    const coep = stats.teammateList.slice(0,10);
+    const coepHTML = coep.length
+    ? coep.map(r => `
+        <div class="rival-card">
+          <div>
+            <span class="player-dot" style="background:${state.players[r.id]?.color ?? '#888'};display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.4rem"></span>
+            <span class="rival-name">${r.name}</span>
+          </div>
+          <span class="rival-record">${r.wins}V / ${r.losses}D / ${r.draws}N</span>
+        </div>`).join("")
+    : '<p class="text-muted" style="font-size:.85rem">Aucun coéquipier</p>';
+
 
   // Player's matches
   const playerMatches = sorted.filter(m =>
@@ -236,6 +250,10 @@ function openPlayerDetail(playerId) {
         <span class="detail-stat-val">${stats.matchesDef}</span>
         <span class="detail-stat-lbl">Défense</span>
       </div>
+      <div class="detail-stat-card">
+        <span class="detail-stat-val">${stats.bestserie}</span>
+        <span class="detail-stat-lbl">Meilleure série de victoires</span>
+      </div>
     </div>
 
     <!-- ELO Chart -->
@@ -247,8 +265,13 @@ function openPlayerDetail(playerId) {
     <div class="detail-grid">
       <!-- Rivals -->
       <div>
-        <p class="detail-section-title">Adversaires fréquents</p>
+        <p class="detail-section-title">Ils se font poutrer</p>
         ${rivalsHTML}
+      </div>
+      <!-- Rivals -->
+      <div>
+        <p class="detail-section-title">Ils me carry</p>
+        ${coepHTML}
       </div>
       <!-- Recent matches -->
       <div>
@@ -273,6 +296,7 @@ function openPlayerDetail(playerId) {
           }).join("") || '<p class="text-muted" style="font-size:.85rem">Aucun match</p>'}
         </div>
       </div>
+      
     </div>
   `;
 
