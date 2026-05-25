@@ -857,6 +857,231 @@ input, select, textarea { font-family: inherit; }
   .stat-val { font-size: 1.8rem; }
   .score-group { flex-direction: row; }
   .detail-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .players-selector-grid { grid-template-columns: repeat(2, 1fr); }
+  .generated-teams-grid { grid-template-columns: 1fr; }
+}
+
+/* ===================== TEAM GENERATOR ===================== */
+.players-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.player-checkbox-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.player-checkbox {
+  display: none;
+}
+
+.player-checkbox-visual {
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.player-checkbox:checked + .player-checkbox-visual {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 232, 122, 0.3);
+  background: var(--bg3) !important;
+}
+
+.player-checkbox-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.player-checkbox:checked + .player-checkbox-visual .player-checkbox-dot {
+  opacity: 1;
+}
+
+.player-checkbox-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.selector-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+/* Generated Teams */
+.generated-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.team-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.team-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+
+.team-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.team-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.team-badge {
+  font-size: 1.2rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.team-players {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.team-player {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.player-position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 70px;
+  background: var(--bg3);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.position-emoji {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.position-name {
+  font-size: 0.7rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.player-info {
+  flex: 1;
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.player-elo {
+  font-size: 0.8rem;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  margin-top: 0.2rem;
+}
+
+/* Weights Table */
+.weights-info {
+  background: var(--bg3);
+  border-left: 3px solid var(--accent2);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.weights-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weight-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--bg3);
+  border-radius: var(--radius);
+}
+
+.weight-player {
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.weight-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.weight-bar-container {
+  flex: 1;
+  height: 24px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.weight-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+  opacity: 0.6;
+}
+
+.weight-chance {
+  min-width: 50px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
 }
 
 /* ===================== UTILITIES ===================== */
