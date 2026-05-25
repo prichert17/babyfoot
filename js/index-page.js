@@ -3,7 +3,7 @@
 // Logique de la page d'accueil : classement + graphique ELO
 // ============================================================
 
-import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort } from "./app.js";
+import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort, getActionLogs } from "./app.js";
 
 let eloChart = null;
 
@@ -14,6 +14,7 @@ onStateReady(() => {
   renderDuos();
   renderEloChart(sorted);
   renderRecentMatches(sorted);
+  renderActionLogs();
 });
 
 // ─── Hero Stats ──────────────────────────────────────────────
@@ -323,4 +324,59 @@ function matchCardHTML(m, showActions) {
       <span class="match-date">${formatDate(m.date)}</span>
       ${m.comment ? `<div class="match-comment">"${m.comment}"</div>` : ""}
     </div>`;
+}
+
+// ─── Action Logs (Suppressions + Modifications) ────────────
+function renderActionLogs() {
+  const container = document.getElementById("deletionLog");
+  if (!container) return;
+
+  const logs = getActionLogs();
+  if (!logs.length) {
+    container.innerHTML = '<div class="empty-state" style="color: #ccc; font-size: 0.85rem;">Aucune action enregistrée</div>';
+    return;
+  }
+
+  container.innerHTML = logs.map(log => {
+    const timestamp = new Date(log.timestamp);
+    const timeStr = timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const dateStr = timestamp.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    
+    let icon = "📝";
+    let actionText = "Modification";
+    let actionColor = "#667eea";
+    
+    if (log.action === "deletion") {
+      icon = "🗑️";
+      actionText = "Suppression";
+      actionColor = "#ff6b6b";
+    } else if (log.action === "edit") {
+      icon = "✏️";
+      actionText = "Modification";
+      actionColor = "#ffa500";
+    }
+
+    return `
+      <div class="log-entry" style="padding: 0.75rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: flex-start; font-size: 0.85rem; color: #666;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <span style="font-size: 1.1rem;">${icon}</span>
+            <strong style="color: ${actionColor};">${actionText}</strong>
+            <span style="color: #999; font-size: 0.8rem;">${log.mode}</span>
+          </div>
+          <div style="color: #555; margin-bottom: 0.25rem;">
+            <span style="font-weight: 500;">${log.teamA}</span> vs <span style="font-weight: 500;">${log.teamB}</span>
+          </div>
+          <div style="color: #888; font-size: 0.8rem;">
+            Score: <strong>${log.score}</strong>
+            ${log.oldScore ? ` (avant: ${log.oldScore})` : ""}
+          </div>
+        </div>
+        <div style="text-align: right; color: #999; white-space: nowrap; margin-left: 1rem;">
+          <div style="font-size: 0.75rem;">${dateStr}</div>
+          <div style="font-size: 0.75rem;">${timeStr}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
