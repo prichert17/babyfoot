@@ -3,7 +3,7 @@
 // Logique de la page d'accueil : classement + graphique ELO
 // ============================================================
 
-import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort } from "./app.js";
+import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort, getActionLogs } from "./app.js";
 
 let eloChart = null;
 
@@ -11,8 +11,10 @@ onStateReady(() => {
   const { sorted } = recomputeAllEloFull();
   renderHeroStats(sorted);
   renderRanking();
+  renderDuos();
   renderEloChart(sorted);
   renderRecentMatches(sorted);
+  renderActionLogs();
 });
 
 // ─── Hero Stats ──────────────────────────────────────────────
@@ -93,6 +95,107 @@ function getRecentTrend(playerId) {
     count++;
   }
   return delta;
+}
+
+// ─── Duo Stats ──────────────────────────────────────────────
+function calculateDuoStats() {
+  const duoMap = {}; // Key: "id1-id2" (sorted), Value: { ids, matches, wins }
+  
+  // Only process 2v2 matches
+  for (const m of state.matches) {
+    if (m.mode !== "2v2" || m.teamA.length < 2 || m.teamB.length < 2) continue;
+    
+    // Duo A
+    const duoA = [m.teamA[0].playerId, m.teamA[1].playerId].sort().join("-");
+    const duoB = [m.teamB[0].playerId, m.teamB[1].playerId].sort().join("-");
+    
+    const isAWin = m.scoreA > m.scoreB;
+    const isBWin = m.scoreB > m.scoreA;
+    
+    if (!duoMap[duoA]) duoMap[duoA] = { ids: [m.teamA[0].playerId, m.teamA[1].playerId], matches: 0, wins: 0 };
+    duoMap[duoA].matches++;
+    if (isAWin) duoMap[duoA].wins++;
+    
+    if (!duoMap[duoB]) duoMap[duoB] = { ids: [m.teamB[0].playerId, m.teamB[1].playerId], matches: 0, wins: 0 };
+    duoMap[duoB].matches++;
+    if (isBWin) duoMap[duoB].wins++;
+  }
+  
+  // Convert to array and compute win rates, filter only duos with 3+ matches
+  const duos = Object.entries(duoMap)
+    .filter(([_, data]) => data.matches > 2)
+    .map(([_, data]) => {
+      return {
+        ...data,
+        winRate: data.matches > 0 ? ((data.wins / data.matches) * 100).toFixed(0) : 0
+      };
+    });
+  
+  // Sort by win rate, descending
+  duos.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
+  
+  return duos;
+}
+
+function renderDuos() {
+  const container = document.getElementById("duosContainer");
+  if (!container) return;
+  
+  const duos = calculateDuoStats();
+  if (!duos.length) {
+    container.innerHTML = '<div class="empty-state">Pas assez de matchs 2v2 pour afficher les duos</div>';
+    return;
+  }
+  
+  const bestDuos = duos.slice(0, 3);
+  const worstDuos = duos.slice(-3).reverse(); // Get last 3 and reverse to show worst first
+  
+  const duoCard = (duo, type) => {
+    const names = duo.ids.map(id => state.players[id]?.name ?? "?").join(" & ");
+    const colors = duo.ids.map(id => state.players[id]?.color ?? "#888");
+    const bgStyle = `background: linear-gradient(135deg, ${colors[0]}22, ${colors[1]}22)`;
+    const isBest = type === "best";
+    const typeClass = isBest ? "best" : "worst";
+    
+    return `
+      <div class="duo-card ${typeClass}" style="${bgStyle}">
+        <div class="duo-names">
+          ${duo.ids.map(id => `
+            <span class="duo-player" style="color: ${state.players[id]?.color}">
+              ${state.players[id]?.name ?? "?"}
+            </span>
+          `).join('<span class="duo-sep">&</span>')}
+        </div>
+        <div class="duo-stats">
+          <div class="duo-stat">
+            <span class="duo-stat-val" style="color: ${isBest ? 'var(--accent)' : 'var(--danger)'}">${duo.winRate}%</span>
+            <span class="duo-stat-lbl">Win Rate</span>
+          </div>
+          <div class="duo-stat">
+            <span class="duo-stat-val">${duo.wins}/${duo.matches}</span>
+            <span class="duo-stat-lbl">Victoires</span>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+  
+  container.innerHTML = `
+    <div class="duos-section">
+      <div class="duos-subsection">
+        <h3 class="duos-title">🏆 Meilleurs Duos</h3>
+        <div class="duos-grid">
+          ${bestDuos.map(duo => duoCard(duo, "best")).join("")}
+        </div>
+      </div>
+      <div class="duos-subsection">
+        <h3 class="duos-title">📉 Pires Duos</h3>
+        <div class="duos-grid">
+          ${worstDuos.map(duo => duoCard(duo, "worst")).join("")}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // ─── ELO Chart ───────────────────────────────────────────────
@@ -221,4 +324,59 @@ function matchCardHTML(m, showActions) {
       <span class="match-date">${formatDate(m.date)}</span>
       ${m.comment ? `<div class="match-comment">"${m.comment}"</div>` : ""}
     </div>`;
+}
+
+// ─── Action Logs (Suppressions + Modifications) ────────────
+function renderActionLogs() {
+  const container = document.getElementById("deletionLog");
+  if (!container) return;
+
+  const logs = getActionLogs();
+  if (!logs.length) {
+    container.innerHTML = '<div class="empty-state" style="color: #ccc; font-size: 0.85rem;">Aucune action enregistrée</div>';
+    return;
+  }
+
+  container.innerHTML = logs.map(log => {
+    const timestamp = new Date(log.timestamp);
+    const timeStr = timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const dateStr = timestamp.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    
+    let icon = "📝";
+    let actionText = "Modification";
+    let actionColor = "#667eea";
+    
+    if (log.action === "deletion") {
+      icon = "🗑️";
+      actionText = "Suppression";
+      actionColor = "#ff6b6b";
+    } else if (log.action === "edit") {
+      icon = "✏️";
+      actionText = "Modification";
+      actionColor = "#ffa500";
+    }
+
+    return `
+      <div class="log-entry" style="padding: 0.75rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: flex-start; font-size: 0.85rem; color: #666;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <span style="font-size: 1.1rem;">${icon}</span>
+            <strong style="color: ${actionColor};">${actionText}</strong>
+            <span style="color: #999; font-size: 0.8rem;">${log.mode}</span>
+          </div>
+          <div style="color: #555; margin-bottom: 0.25rem;">
+            <span style="font-weight: 500;">${log.teamA}</span> vs <span style="font-weight: 500;">${log.teamB}</span>
+          </div>
+          <div style="color: #888; font-size: 0.8rem;">
+            Score: <strong>${log.score}</strong>
+            ${log.oldScore ? ` (avant: ${log.oldScore})` : ""}
+          </div>
+        </div>
+        <div style="text-align: right; color: #999; white-space: nowrap; margin-left: 1rem;">
+          <div style="font-size: 0.75rem;">${dateStr}</div>
+          <div style="font-size: 0.75rem;">${timeStr}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }

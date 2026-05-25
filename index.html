@@ -21,6 +21,7 @@
       <li><a href="index.html" class="active">Accueil</a></li>
       <li><a href="matches.html">Matchs</a></li>
       <li><a href="players.html">Joueurs</a></li>
+      <li><a href="team-generator.html">Générateur</a></li>
     </ul>
     <button class="nav-burger" id="navBurger">☰</button>
   </nav>
@@ -28,6 +29,7 @@
     <a href="index.html">Accueil</a>
     <a href="matches.html">Matchs</a>
     <a href="players.html">Joueurs</a>
+    <a href="team-generator.html">Générateur</a>
   </div>
 
   <main class="page-main">
@@ -82,6 +84,17 @@
       </div>
     </section>
 
+    <!-- BEST / WORST DUO -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">MEILLEUR & PIRE DUO</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="duos-container" id="duosContainer">
+        <div class="loading-cell">Chargement…</div>
+      </div>
+    </section>
+
     <!-- ELO CHART -->
     <section class="section">
       <div class="section-header">
@@ -102,6 +115,17 @@
       </div>
       <div class="recent-matches" id="recentMatches">
         <div class="loading-cell">Chargement…</div>
+      </div>
+    </section>
+
+    <!-- DELETION LOG (discrète) -->
+    <section class="section section--minimal">
+      <div class="section-header">
+        <h2 class="section-title" style="font-size: 0.85rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">📋 Historique des actions</h2>
+        <div class="section-line" style="background: #ddd;"></div>
+      </div>
+      <div class="action-log" id="deletionLog">
+        <div class="empty-state" style="color: #ccc; font-size: 0.85rem;">Aucune action</div>
       </div>
     </section>
 

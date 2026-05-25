@@ -17,6 +17,46 @@ export const state = {
   ready: false,
 };
 
+// ─── Log des actions sur les matchs ────────────────────────
+const LOG_STORAGE_KEY = "babyfoot_action_logs";
+const MAX_LOGS = 50; // Garder les 50 dernières actions
+
+export function getActionLogs() {
+  const saved = localStorage.getItem(LOG_STORAGE_KEY);
+  return saved ? JSON.parse(saved) : [];
+}
+
+export function logMatchAction(action, matchData, oldMatchData = null) {
+  const logs = getActionLogs();
+  
+  // Récupérer les infos du match
+  const playerNames = (players) => players.map(p => state.players[p.playerId]?.name ?? "?").join(" & ");
+  
+  const logEntry = {
+    id: matchData.id,
+    timestamp: new Date().toISOString(),
+    action: action, // "deletion", "edit"
+    mode: matchData.mode,
+    teamA: playerNames(matchData.teamA),
+    teamB: playerNames(matchData.teamB),
+    score: `${matchData.scoreA} - ${matchData.scoreB}`,
+    date: matchData.date,
+  };
+  
+  // Pour les modifications, ajouter l'état précédent
+  if (action === "edit" && oldMatchData) {
+    logEntry.oldScore = `${oldMatchData.scoreA} - ${oldMatchData.scoreB}`;
+  }
+  
+  // Ajouter au début et limiter à MAX_LOGS
+  logs.unshift(logEntry);
+  localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(logs.slice(0, MAX_LOGS)));
+}
+
+export function clearActionLogs() {
+  localStorage.removeItem(LOG_STORAGE_KEY);
+}
+
 // ─── Listeners (page peut s'abonner) ───────────────────────
 const subscribers = [];
 export function onStateReady(fn) { subscribers.push(fn); }
@@ -221,7 +261,15 @@ export async function addMatch(matchData) {
 
 // ─── Firestore : Modifier un match ──────────────────────────
 export async function editMatch(matchId, matchData) {
+  // Récupérer l'ancien match pour le log
+  const oldMatchData = state.matches.find(m => m.id === matchId);
+  
   await updateDoc(doc(db, "matches", matchId), matchData);
+
+  // Enregistrer dans le log
+  if (oldMatchData) {
+    logMatchAction("edit", { ...oldMatchData, ...matchData }, oldMatchData);
+  }
 
   // Recompute all ELO from scratch
   await loadAll(); // reload fresh data
@@ -247,6 +295,14 @@ export async function editMatch(matchId, matchData) {
 
 // ─── Firestore : Supprimer un match ─────────────────────────
 export async function deleteMatch(matchId) {
+  // Récupérer les données du match avant suppression
+  const matchData = state.matches.find(m => m.id === matchId);
+  
+  // Enregistrer dans le log
+  if (matchData) {
+    logMatchAction("deletion", matchData);
+  }
+  
   await deleteDoc(doc(db, "matches", matchId));
   await loadAll();
   const { elos } = recomputeAllEloFull();

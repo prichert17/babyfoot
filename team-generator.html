@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Générateur d'Équipes - Babyfoot ELO</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">⚽</span>
+      <span class="nav-title">BABYFOOT ELO</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="matches.html">Matchs</a></li>
+      <li><a href="players.html">Joueurs</a></li>
+      <li><a href="team-generator.html" class="active">Générateur</a></li>
+    </ul>
+    <button class="nav-burger" id="navBurger">☰</button>
+  </nav>
+  <div class="nav-mobile-menu" id="mobileMenu">
+    <a href="index.html">Accueil</a>
+    <a href="matches.html">Matchs</a>
+    <a href="players.html">Joueurs</a>
+    <a href="team-generator.html">Générateur</a>
+  </div>
+
+  <main class="page-main">
+
+    <!-- HERO -->
+    <section class="hero hero--small">
+      <div class="hero-text">
+        <h1 class="hero-title">GÉNÉRATEUR<br/><span class="accent">D'ÉQUIPES</span></h1>
+        <p class="hero-sub">Crée des duos équilibrés aléatoirement</p>
+      </div>
+    </section>
+
+    <!-- PLAYER SELECTOR -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">JOUEURS PRÉSENTS</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="players-selector" id="playersSelector">
+        <div class="loading-cell">Chargement des joueurs…</div>
+      </div>
+      <div class="selector-actions">
+        <button class="btn btn-primary" id="btnSelectAll">Tous</button>
+        <button class="btn btn-ghost" id="btnClearAll">Réinitialiser</button>
+      </div>
+    </section>
+
+    <!-- GENERATED TEAMS -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">ÉQUIPES GÉNÉRÉES</h2>
+        <div class="section-line"></div>
+        <button class="btn btn-primary" id="btnGenerate">⚡ Générer les équipes</button>
+      </div>
+      <div class="teams-container" id="teamsContainer">
+        <div class="empty-state">Sélectionne les joueurs et clique sur "Générer"</div>
+      </div>
+    </section>
+
+    <!-- PLAYER WEIGHTS (DEBUG) -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">STATISTIQUES DE SÉLECTION</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="weights-table" id="weightsTable">
+        <div class="loading-cell">Aucune donnée</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>Babyfoot ELO © 2025</span>
+  </footer>
+
+  <!-- FIREBASE -->
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/team-generator.js"></script>
+</body>
+</html>
