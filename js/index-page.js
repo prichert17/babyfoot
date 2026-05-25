@@ -11,6 +11,7 @@ onStateReady(() => {
   const { sorted } = recomputeAllEloFull();
   renderHeroStats(sorted);
   renderRanking();
+  renderDuos();
   renderEloChart(sorted);
   renderRecentMatches(sorted);
 });
@@ -93,6 +94,107 @@ function getRecentTrend(playerId) {
     count++;
   }
   return delta;
+}
+
+// ─── Duo Stats ──────────────────────────────────────────────
+function calculateDuoStats() {
+  const duoMap = {}; // Key: "id1-id2" (sorted), Value: { ids, matches, wins }
+  
+  // Only process 2v2 matches
+  for (const m of state.matches) {
+    if (m.mode !== "2v2" || m.teamA.length < 2 || m.teamB.length < 2) continue;
+    
+    // Duo A
+    const duoA = [m.teamA[0].playerId, m.teamA[1].playerId].sort().join("-");
+    const duoB = [m.teamB[0].playerId, m.teamB[1].playerId].sort().join("-");
+    
+    const isAWin = m.scoreA > m.scoreB;
+    const isBWin = m.scoreB > m.scoreA;
+    
+    if (!duoMap[duoA]) duoMap[duoA] = { ids: [m.teamA[0].playerId, m.teamA[1].playerId], matches: 0, wins: 0 };
+    duoMap[duoA].matches++;
+    if (isAWin) duoMap[duoA].wins++;
+    
+    if (!duoMap[duoB]) duoMap[duoB] = { ids: [m.teamB[0].playerId, m.teamB[1].playerId], matches: 0, wins: 0 };
+    duoMap[duoB].matches++;
+    if (isBWin) duoMap[duoB].wins++;
+  }
+  
+  // Convert to array and compute win rates, filter only duos with 3+ matches
+  const duos = Object.entries(duoMap)
+    .filter(([_, data]) => data.matches > 2)
+    .map(([_, data]) => {
+      return {
+        ...data,
+        winRate: data.matches > 0 ? ((data.wins / data.matches) * 100).toFixed(0) : 0
+      };
+    });
+  
+  // Sort by win rate, descending
+  duos.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
+  
+  return duos;
+}
+
+function renderDuos() {
+  const container = document.getElementById("duosContainer");
+  if (!container) return;
+  
+  const duos = calculateDuoStats();
+  if (!duos.length) {
+    container.innerHTML = '<div class="empty-state">Pas assez de matchs 2v2 pour afficher les duos</div>';
+    return;
+  }
+  
+  const bestDuos = duos.slice(0, 3);
+  const worstDuos = duos.slice(-3).reverse(); // Get last 3 and reverse to show worst first
+  
+  const duoCard = (duo, type) => {
+    const names = duo.ids.map(id => state.players[id]?.name ?? "?").join(" & ");
+    const colors = duo.ids.map(id => state.players[id]?.color ?? "#888");
+    const bgStyle = `background: linear-gradient(135deg, ${colors[0]}22, ${colors[1]}22)`;
+    const isBest = type === "best";
+    const typeClass = isBest ? "best" : "worst";
+    
+    return `
+      <div class="duo-card ${typeClass}" style="${bgStyle}">
+        <div class="duo-names">
+          ${duo.ids.map(id => `
+            <span class="duo-player" style="color: ${state.players[id]?.color}">
+              ${state.players[id]?.name ?? "?"}
+            </span>
+          `).join('<span class="duo-sep">&</span>')}
+        </div>
+        <div class="duo-stats">
+          <div class="duo-stat">
+            <span class="duo-stat-val" style="color: ${isBest ? 'var(--accent)' : 'var(--danger)'}">${duo.winRate}%</span>
+            <span class="duo-stat-lbl">Win Rate</span>
+          </div>
+          <div class="duo-stat">
+            <span class="duo-stat-val">${duo.wins}/${duo.matches}</span>
+            <span class="duo-stat-lbl">Victoires</span>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+  
+  container.innerHTML = `
+    <div class="duos-section">
+      <div class="duos-subsection">
+        <h3 class="duos-title">🏆 Meilleurs Duos</h3>
+        <div class="duos-grid">
+          ${bestDuos.map(duo => duoCard(duo, "best")).join("")}
+        </div>
+      </div>
+      <div class="duos-subsection">
+        <h3 class="duos-title">📉 Pires Duos</h3>
+        <div class="duos-grid">
+          ${worstDuos.map(duo => duoCard(duo, "worst")).join("")}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // ─── ELO Chart ───────────────────────────────────────────────
