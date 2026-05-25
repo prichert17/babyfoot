@@ -4,6 +4,7 @@
 // ============================================================
 
 import { state, onStateReady, showToast } from "./app.js";
+import { predictTeamVictory } from "./elo.js";
 
 const STORAGE_KEY = "babyfoot_player_weights";
 const TEAMS_COUNT = 2;
@@ -187,41 +188,106 @@ function renderGeneratedTeams(teams) {
   const container = document.getElementById("teamsContainer");
   if (!container) return;
 
+  // Préparer les données d'équipes enrichies avec ELO
+  const enrichedTeams = teams.map(team =>
+    team.map(player => ({
+      ...player,
+      ...state.players[player.id]
+    }))
+  );
+
+  // Calculer la prédiction
+  const prediction = predictTeamVictory(enrichedTeams[0], enrichedTeams[1], state.matches);
+
+  // Déterminer quelle équipe est favorite
+  const isFavorite0 = prediction.teamA_percent > prediction.teamB_percent;
+
   container.innerHTML = `
     <div class="generated-teams-grid">
-      ${teams.map((team, teamIdx) => {
+      ${enrichedTeams.map((team, teamIdx) => {
         const teamColor = TEAM_COLORS[teamIdx];
         const shuffledPositions = [...POSITIONS].sort(() => Math.random() - 0.5);
+        const probability = teamIdx === 0 ? prediction.teamA_percent : prediction.teamB_percent;
+        const isFavorite = (teamIdx === 0 && isFavorite0) || (teamIdx === 1 && !isFavorite0);
         
         return `
           <div class="team-card" style="border-left: 4px solid ${teamColor.css}">
             <div class="team-header" style="background: ${teamColor.css}22">
-              <h3 class="team-name" style="color: ${teamColor.css}">ÉQUIPE ${teamColor.name}</h3>
-              <span class="team-badge" style="background: ${teamColor.css}; color: #000">
-                ${teamColor.css === "#ff4757" ? "🔴" : "🔵"}
-              </span>
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div>
+                  <h3 class="team-name" style="color: ${teamColor.css}; margin: 0">ÉQUIPE ${teamColor.name}</h3>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="team-badge" style="background: ${teamColor.css}; color: #000">
+                    ${teamColor.css === "#ff4757" ? "🔴" : "🔵"}
+                  </span>
+                  <div class="team-probability" style="background: ${teamColor.css}; color: #000; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; min-width: 60px; text-align: center;">
+                    ${probability}%
+                  </div>
+                  ${isFavorite ? '<span style="font-size: 1.2rem; margin-left: 0.25rem;">⭐</span>' : ''}
+                </div>
+              </div>
             </div>
             <div class="team-players">
               ${team.map((player, playerIdx) => {
                 const position = shuffledPositions[playerIdx];
-                const playerData = state.players[player.id];
                 return `
                   <div class="team-player">
                     <div class="player-position">
                       <span class="position-emoji">${position.emoji}</span>
                       <span class="position-name">${position.name}</span>
                     </div>
-                    <div class="player-info" style="border-left: 3px solid ${playerData.color}; padding-left: 0.75rem">
+                    <div class="player-info" style="border-left: 3px solid ${player.color}; padding-left: 0.75rem">
                       <div class="player-name">${player.name}</div>
-                      <div class="player-elo">ELO: ${playerData.elo}</div>
+                      <div class="player-elo">ELO: ${Math.round(player.elo)}</div>
                     </div>
                   </div>
                 `;
               }).join("")}
             </div>
+            <div class="team-stats" style="padding: 0.75rem; border-top: 1px solid ${teamColor.css}33; font-size: 0.85rem; color: #666;">
+              <div>Moyenne ELO: <strong style="color: ${teamColor.css}">${teamIdx === 0 ? prediction.eloA : prediction.eloB}</strong></div>
+            </div>
           </div>
         `;
       }).join("")}
+    </div>
+
+    <!-- PRÉDICTION DÉTAILLÉE -->
+    <div class="prediction-card" style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 12px; border: 1px solid #667eea30;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0; color: #333; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+          🔮 PRÉDICTION DE VICTOIRE
+        </h3>
+        <span style="background: #667eea; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">
+          Confiance: ${prediction.confidence}%
+        </span>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border-left: 4px solid ${TEAM_COLORS[0].css};">
+          <div style="font-size: 2.5rem; font-weight: 700; color: ${TEAM_COLORS[0].css}; margin-bottom: 0.25rem;">
+            ${prediction.teamA_percent}%
+          </div>
+          <div style="font-size: 0.9rem; color: #666;">Équipe ROUGE</div>
+        </div>
+        <div style="text-align: center; padding: 1rem; background: white; border-radius: 8px; border-left: 4px solid ${TEAM_COLORS[1].css};">
+          <div style="font-size: 2.5rem; font-weight: 700; color: ${TEAM_COLORS[1].css}; margin-bottom: 0.25rem;">
+            ${prediction.teamB_percent}%
+          </div>
+          <div style="font-size: 0.9rem; color: #666;">Équipe BLEU</div>
+        </div>
+      </div>
+
+      <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 4px solid #667eea;">
+        <div style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+          <strong>Analyse:</strong> ${prediction.explanation}
+          <br/>
+          <span style="font-size: 0.85rem; color: #888; margin-top: 0.5rem; display: block;">
+            Cette prédiction est basée sur les ELO, l'homogénéité des équipes et la forme récente des joueurs.
+          </span>
+        </div>
+      </div>
     </div>
   `;
 }
