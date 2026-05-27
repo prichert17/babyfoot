@@ -30,7 +30,7 @@ export function logMatchAction(action, matchData, oldMatchData = null) {
   const logs = getActionLogs();
   
   // Récupérer les infos du match
-  const playerNames = (players) => players.map(p => state.players[p.playerId]?.name ?? "?").join(" & ");
+  const playerNames = (players) => players.map(p => getDisplayName(p.playerId)).join(" & ");
   
   const logEntry = {
     id: matchData.id,
@@ -55,6 +55,38 @@ export function logMatchAction(action, matchData, oldMatchData = null) {
 
 export function clearActionLogs() {
   localStorage.removeItem(LOG_STORAGE_KEY);
+}
+
+// ─── Surnoms locaux (personnalisés par appareil) ──────────
+const LOCAL_NICKNAMES_KEY = "babyfoot_local_nicknames";
+
+export function getLocalNicknames() {
+  const saved = localStorage.getItem(LOCAL_NICKNAMES_KEY);
+  return saved ? JSON.parse(saved) : {};
+}
+
+export function setLocalNickname(playerId, nickname) {
+  const nicknames = getLocalNicknames();
+  if (nickname.trim() === "") {
+    delete nicknames[playerId];
+  } else {
+    nicknames[playerId] = nickname.trim();
+  }
+  localStorage.setItem(LOCAL_NICKNAMES_KEY, JSON.stringify(nicknames));
+}
+
+export function getDisplayName(playerId) {
+  const nicknames = getLocalNicknames();
+  if (nicknames[playerId]) {
+    return nicknames[playerId];
+  }
+  return state.players[playerId]?.name ?? "?";
+}
+
+export function clearLocalNickname(playerId) {
+  const nicknames = getLocalNicknames();
+  delete nicknames[playerId];
+  localStorage.setItem(LOCAL_NICKNAMES_KEY, JSON.stringify(nicknames));
 }
 
 // ─── Listeners (page peut s'abonner) ───────────────────────

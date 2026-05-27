@@ -3,7 +3,7 @@
 // Logique de la page d'accueil : classement + graphique ELO
 // ============================================================
 
-import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort, getActionLogs } from "./app.js";
+import { state, onStateReady, recomputeAllEloFull, formatDate, formatDateShort, getActionLogs, getDisplayName } from "./app.js";
 
 let eloChart = null;
 
@@ -50,7 +50,7 @@ function renderRanking() {
         <td>
           <span class="player-chip">
             <span class="player-dot" style="background:${p.color}"></span>
-            ${p.name}
+            ${getDisplayName(p.id)}
           </span>
         </td>
         <td><span class="elo-val">${p.elo}</span></td>
@@ -151,7 +151,7 @@ function renderDuos() {
   const worstDuos = duos.slice(-3).reverse(); // Get last 3 and reverse to show worst first
   
   const duoCard = (duo, type) => {
-    const names = duo.ids.map(id => state.players[id]?.name ?? "?").join(" & ");
+    const names = duo.ids.map(id => getDisplayName(id)).join(" & ");
     const colors = duo.ids.map(id => state.players[id]?.color ?? "#888");
     const bgStyle = `background: linear-gradient(135deg, ${colors[0]}22, ${colors[1]}22)`;
     const isBest = type === "best";
@@ -162,7 +162,7 @@ function renderDuos() {
         <div class="duo-names">
           ${duo.ids.map(id => `
             <span class="duo-player" style="color: ${state.players[id]?.color}">
-              ${state.players[id]?.name ?? "?"}
+              ${getDisplayName(id)}
             </span>
           `).join('<span class="duo-sep">&</span>')}
         </div>
@@ -290,7 +290,7 @@ function renderRecentMatches(sortedMatches) {
 }
 
 function matchCardHTML(m, showActions) {
-  const pName = id => state.players[id]?.name ?? "?";
+  const pName = id => getDisplayName(id);
   const pColor = id => state.players[id]?.color ?? "#888";
 
   const teamAHTML = m.teamA.map(p => `

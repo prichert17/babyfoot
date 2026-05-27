@@ -84,6 +84,34 @@
       </div>
     </div>
 
+    <!-- LOCAL NICKNAME MODAL -->
+    <div class="modal-overlay" id="nicknameModal">
+      <div class="modal modal--small">
+        <div class="modal-header">
+          <h3 class="modal-title">🎭 Mon surnom personnel</h3>
+          <button class="modal-close" id="nicknameModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 1rem; font-size: 0.9rem; color: #666;">
+            Définissez un surnom personnalisé visible uniquement sur <strong>cet appareil</strong>.<br/>
+            Les autres joueurs verront votre nom original.
+          </div>
+          <div class="form-group">
+            <label class="form-label">Surnom personnel</label>
+            <input type="text" class="form-input" id="nicknameInput" placeholder="Votre surnom..." />
+          </div>
+          <div class="form-group" style="font-size: 0.85rem; color: #999;">
+            Laissez vide pour utiliser votre nom original.
+          </div>
+          <input type="hidden" id="nicknamePlayerId" value="" />
+          <div class="form-actions">
+            <button class="btn btn-ghost" id="cancelNickname">Annuler</button>
+            <button class="btn btn-primary" id="saveNickname">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- PLAYERS GRID -->
     <section class="section">
       <div class="section-header">

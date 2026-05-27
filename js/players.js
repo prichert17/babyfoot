@@ -6,7 +6,8 @@
 import {
   state, onStateReady, recomputeAllEloFull,
   addPlayer, editPlayer, computePlayerStats,
-  formatDate, formatDateShort, showToast
+  formatDate, formatDateShort, showToast,
+  getDisplayName, getLocalNicknames, setLocalNickname, clearLocalNickname
 } from "./app.js";
 
 const COLOR_PRESETS = [
@@ -53,6 +54,7 @@ function renderPlayersGrid() {
 
   grid.innerHTML = players.map(p => {
     const stats = quickStats(p.id);
+    const displayName = getDisplayName(p.id);
     return `
       <div class="player-card" style="--player-color:${p.color}">
         <div class="player-card-header">
@@ -61,12 +63,13 @@ function renderPlayersGrid() {
               ${p.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div class="player-card-name">${p.name}</div>
+              <div class="player-card-name">${displayName}</div>
               <div class="player-card-elo">ELO: <span style="color:var(--accent);font-weight:700">${p.elo}</span></div>
             </div>
           </div>
           <div class="player-card-actions">
             <button class="btn-icon" data-view="${p.id}" title="Voir stats">👁</button>
+            <button class="btn-icon" data-nickname="${p.id}" title="Mon surnom">🎭</button>
             <button class="btn-icon" data-edit="${p.id}" title="Modifier">✏️</button>
           </div>
         </div>
@@ -89,6 +92,9 @@ function renderPlayersGrid() {
 
   grid.querySelectorAll("[data-view]").forEach(btn => {
     btn.addEventListener("click", () => openPlayerDetail(btn.dataset.view));
+  });
+  grid.querySelectorAll("[data-nickname]").forEach(btn => {
+    btn.addEventListener("click", () => openNicknameModal(btn.dataset.nickname));
   });
   grid.querySelectorAll("[data-edit]").forEach(btn => {
     btn.addEventListener("click", () => openEditModal(btn.dataset.edit));
@@ -351,3 +357,40 @@ function closeDetailModal() {
 
 document.getElementById("detailModalClose")?.addEventListener("click", closeDetailModal);
 document.getElementById("playerDetailModal")?.addEventListener("click", e => { if (e.target === e.currentTarget) closeDetailModal(); });
+
+// ─── Nickname Modal ──────────────────────────────────────────
+function openNicknameModal(playerId) {
+  const p = state.players[playerId];
+  if (!p) return;
+
+  const localNicknames = getLocalNicknames();
+  const currentNickname = localNicknames[playerId] || "";
+
+  document.getElementById("nicknameInput").value = currentNickname;
+  document.getElementById("nicknamePlayerId").value = playerId;
+  document.getElementById("nicknameModal").classList.add("open");
+}
+
+function closeNicknameModal() {
+  document.getElementById("nicknameModal").classList.remove("open");
+}
+
+document.getElementById("nicknameModalClose")?.addEventListener("click", closeNicknameModal);
+document.getElementById("cancelNickname")?.addEventListener("click", closeNicknameModal);
+document.getElementById("nicknameModal")?.addEventListener("click", e => { if (e.target === e.currentTarget) closeNicknameModal(); });
+
+document.getElementById("saveNickname")?.addEventListener("click", () => {
+  const playerId = document.getElementById("nicknamePlayerId").value;
+  const nickname = document.getElementById("nicknameInput").value.trim();
+
+  if (nickname) {
+    setLocalNickname(playerId, nickname);
+    showToast(`✨ Surnom sauvegardé : ${nickname}`);
+  } else {
+    clearLocalNickname(playerId);
+    showToast("Surnom réinitialisé");
+  }
+
+  closeNicknameModal();
+  renderPlayersGrid();
+});

@@ -6,7 +6,8 @@
 import {
   state, onStateReady, recomputeAllEloFull,
   addMatch, editMatch, deleteMatch, exportCSV,
-  formatDate, showToast, confirm as confirmDialog
+  formatDate, showToast, confirm as confirmDialog,
+  getDisplayName
 } from "./app.js";
 import { Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -220,7 +221,7 @@ function renderMatches(matches) {
 }
 
 function matchCardHTML(m) {
-  const pName = id => state.players[id]?.name ?? "?";
+  const pName = id => getDisplayName(id);
   const pColor = id => state.players[id]?.color ?? "#888";
 
   const teamHTML = (team, score, winner) => {
@@ -281,7 +282,7 @@ function openEloModal(m) {
             <td>
               <span class="player-chip">
                 <span class="player-dot" style="background:${state.players[p.playerId]?.color ?? '#888'}"></span>
-                ${state.players[p.playerId]?.name ?? "?"}
+                ${getDisplayName(p.playerId)}
                 ${p.role ? `<span style="font-size:.7rem;color:var(--text3)">(${p.role})</span>` : ""}
               </span>
             </td>
@@ -311,7 +312,7 @@ function applyFilters() {
   if (search) {
     filtered = filtered.filter(m => {
       const all = [...m.teamA, ...m.teamB];
-      return all.some(p => state.players[p.playerId]?.name.toLowerCase().includes(search));
+      return all.some(p => getDisplayName(p.playerId).toLowerCase().includes(search));
     });
   }
 

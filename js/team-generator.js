@@ -3,7 +3,7 @@
 // Générateur d'équipes aléatoires avec système d'équilibrage
 // ============================================================
 
-import { state, onStateReady, showToast } from "./app.js";
+import { state, onStateReady, showToast, getDisplayName } from "./app.js";
 import { predictTeamVictory } from "./elo.js";
 
 const STORAGE_KEY = "babyfoot_player_weights";
@@ -76,11 +76,11 @@ function renderPlayerSelector() {
     <div class="players-selector-grid">
       ${players.map(p => `
         <label class="player-checkbox-label">
-          <input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.name}">
+          <input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${getDisplayName(p.id)}">
           <span class="player-checkbox-visual" style="border-color: ${p.color}; background: ${p.color}22">
             <span class="player-checkbox-dot" style="background: ${p.color}"></span>
           </span>
-          <span class="player-checkbox-name">${p.name}</span>
+          <span class="player-checkbox-name">${getDisplayName(p.id)}</span>
         </label>
       `).join("")}
     </div>
@@ -238,7 +238,7 @@ function renderGeneratedTeams(teams) {
                       <span class="position-name">${position.name}</span>
                     </div>
                     <div class="player-info" style="border-left: 3px solid ${player.color}; padding-left: 0.75rem">
-                      <div class="player-name">${player.name}</div>
+                      <div class="player-name">${getDisplayName(player.id)}</div>
                       <div class="player-elo">ELO: ${Math.round(player.elo)}</div>
                     </div>
                   </div>
